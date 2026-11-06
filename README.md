@@ -33,4 +33,6 @@ Open **Nutrition** and use the shared date selector to review any day.
 
 Data is stored in LocalStorage under `form.training.v1` for the current browser and origin. No server receives it. Changing the site address, clearing Safari website data, device loss, or private browsing can remove or isolate it. Export backups regularly; storage is not cloud sync. A failed storage write is reported and never treated as a successful save. Malformed saved data is preserved for recovery. A change from another tab blocks writes until reload to prevent stale overwrites.
 
+The small footer storage counter estimates remaining LocalStorage space against a typical 5 MB budget, counting UTF-16 keys and values for this website. It refreshes on load, saves, deletion, imports and changes from another tab. This is an estimate: browsers do not expose the exact LocalStorage quota, and offline app cache uses separate storage. No quota-probing writes are performed.
+
 Do not open `index.html` directly using a file URL; serve it over HTTP for development or HTTPS on an iPhone. Offline installation requires HTTPS (or localhost for development). The app does not require a database, API credentials or a build step.

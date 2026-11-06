@@ -1,4 +1,4 @@
-const CACHE = 'form-static-v5';
+const CACHE = 'form-static-v6';
 const FILES = ['./','./index.html','./styles.css','./app.js','./domain.js','./nutrition.js','./nutrition-ui.js','./icon.svg','./apple-touch-icon.png','./manifest.webmanifest'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('form-static-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

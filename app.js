@@ -12,10 +12,28 @@ try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) data = validateDat
 catch { readBlocked = true; warn('Your saved data could not be read. It has not been overwritten. Export a recovery copy, or import a valid backup before saving new entries.'); }
 let selectedExercise = data.exercises[0]?.id || '';
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(()=>$('#toast').hidden=true,4500); }
+function updateStorageRemaining() {
+  const indicator = $('#storage-remaining');
+  try {
+    // LocalStorage has no quota API. Estimate UTF-16 key/value storage against
+    // a typical 5 MiB budget, without writing test data or measuring other APIs.
+    let used = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key !== null) used += (key.length + (localStorage.getItem(key)?.length || 0)) * 2;
+    }
+    const remaining = Math.max(0, 5 * 1024 * 1024 - used) / (1024 * 1024);
+    indicator.textContent = `Storage ≈ ${remaining > 0 && remaining < 0.01 ? '<0.01' : remaining.toFixed(2)} MB left`;
+    indicator.title = 'Estimated LocalStorage space remaining for this website, based on a typical 5 MB limit and UTF-16 key/value size. Actual browser limits and accounting vary. Offline app cache is separate.';
+  } catch {
+    indicator.textContent = 'Storage unavailable';
+    indicator.title = 'This browser is not allowing access to LocalStorage.';
+  }
+}
 function persist(next, importing = false) {
   if (readBlocked && !importing) { toast('Saving is paused to protect unreadable data. Please import a valid backup.'); return false; }
-  try { localStorage.setItem(STORAGE_KEY,JSON.stringify(next)); data=next; readBlocked=false; $('#storage-warning').hidden=true; return true; }
-  catch { warn('Unable to save on this device. Storage may be full or restricted. Your latest change was not saved. Export a backup of your existing entries.'); return false; }
+  try { localStorage.setItem(STORAGE_KEY,JSON.stringify(next)); data=next; readBlocked=false; $('#storage-warning').hidden=true; updateStorageRemaining(); return true; }
+  catch { updateStorageRemaining(); warn('Unable to save on this device. Storage may be full or restricted. Your latest change was not saved. Export a backup of your existing entries.'); return false; }
 }
 const nutritionUI = initNutrition({ getData:()=>data, getDate:()=>selectedDate, save:persist, toast });
 function renderExerciseOptions() {
@@ -169,6 +187,7 @@ $('#import-data').addEventListener('change',async e=>{
   try{if(file.size>10*1024*1024)throw new Error('Backup must be smaller than 10 MB.');const next=validateData(JSON.parse(await file.text()));if(!confirm(`Replace current data with this backup (${next.sessions.length} workouts, plus nutrition data if included)? Export your existing data first if you want to keep it.`))return;if(persist(next,true)){resetForm();renderExerciseOptions();render();toast('Backup restored. Welcome back.');}}
   catch(err){toast(err instanceof SyntaxError?'This file is not valid JSON.':err.message);}finally{e.target.value='';}
 });
-window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY) {readBlocked=true;warn('Your data changed in another tab. Reload this page before saving to avoid overwriting those changes.');}});
+window.addEventListener('storage',e=>{updateStorageRemaining();if(e.key===STORAGE_KEY) {readBlocked=true;warn('Your data changed in another tab. Reload this page before saving to avoid overwriting those changes.');}});
 renderExerciseOptions();resetForm();render();
+updateStorageRemaining();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
