@@ -1,4 +1,4 @@
-import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints } from './domain.js';
+import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay } from './domain.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -18,29 +18,34 @@ function persist(next, importing = false) {
 }
 function renderExerciseOptions() {
   const previous = $('#log-exercise').value;
-  const options = data.exercises.map(e=>`<option value="${escape(e.id)}">${escape(e.name)}</option>`).join('');
-  $('#log-exercise').innerHTML = options; $('#chart-exercise').innerHTML = options;
-  if (data.exercises.some(e=>e.id===previous)) $('#log-exercise').value=previous;
+  const editedExercise = data.sessions.find(s=>s.id===editingId)?.exerciseId;
+  const available = data.exercises.filter(e=>!e.archived || e.id===editedExercise);
+  const options = list => list.map(e=>`<option value="${escape(e.id)}">${escape(e.name)}${e.archived?' (removed)':''}</option>`).join('');
+  $('#log-exercise').innerHTML = options(available) || '<option value="">Add an exercise to get started</option>';
+  $('#chart-exercise').innerHTML = options(data.exercises) || '<option value="">No exercises</option>';
+  $('#log-exercise').disabled = !available.length; $('#save-workout').disabled = !available.length;
+  if (available.some(e=>e.id===previous)) $('#log-exercise').value=previous;
   if (!data.exercises.some(e=>e.id===selectedExercise)) selectedExercise=data.exercises[0]?.id || '';
   $('#chart-exercise').value=selectedExercise;
 }
 function addSet(weight = '', reps = '') {
   if ($$('.set-row').length>=100) return toast('A workout can contain up to 100 sets.');
   const row = document.createElement('div'); row.className='set-row';
-  row.innerHTML = `<span class="set-number"></span><input class="set-weight" type="number" inputmode="decimal" min="0" max="10000" step="0.01" placeholder="0" value="${escape(weight)}" required><input class="set-reps" type="number" inputmode="numeric" min="1" max="10000" step="1" placeholder="0" value="${escape(reps)}" required><button class="remove-set" type="button">×</button>`;
+  row.innerHTML = `<span class="set-number"></span><input class="set-weight" type="text" inputmode="decimal" placeholder="0" value="${escape(weight)}" required><input class="set-reps" type="number" inputmode="numeric" min="1" max="10000" step="1" placeholder="0" value="${escape(reps)}" required><button class="remove-set" type="button">×</button>`;
+  row.querySelector('.set-weight').addEventListener('input',event=>event.target.setCustomValidity(''));
   row.querySelector('button').addEventListener('click',()=>{row.remove();renumber();});
   $('#set-rows').append(row);renumber();
 }
 function renumber() { $$('.set-row').forEach((row,i)=>{row.querySelector('.set-number').textContent=String(i+1).padStart(2,'0');row.querySelector('.set-weight').setAttribute('aria-label',`Set ${i+1} weight in kg`);row.querySelector('.set-reps').setAttribute('aria-label',`Set ${i+1} reps`);row.querySelector('.remove-set').setAttribute('aria-label',`Remove set ${i+1}`);row.querySelector('.remove-set').disabled=$$('.set-row').length===1;}); }
-function getSets() { return $$('.set-row').map(row=>({weight:Number(row.querySelector('.set-weight').value),reps:Number(row.querySelector('.set-reps').value)})); }
-function resetForm() { editingId=null; $('#log-title').textContent='Log a workout';$('#cancel-edit').hidden=true;$('#set-rows').replaceChildren();addSet();addSet();addSet(); }
+function getSets() { return $$('.set-row').map(row=>({weight:parseDecimal(row.querySelector('.set-weight').value),reps:Number(row.querySelector('.set-reps').value)})); }
+function resetForm() { editingId=null; $('#log-title').textContent='Log a workout';$('#cancel-edit').hidden=true;$('#set-rows').replaceChildren();addSet();addSet();addSet();renderExerciseOptions(); }
 function render() {
   const sessions=data.sessions.filter(s=>s.date===selectedDate), t=totals(sessions), bw=data.bodyweights[selectedDate];
   $('#active-date').value=selectedDate; $('#day-heading').textContent=selectedDate===localDate()?'Today’s effort':prettyDate(selectedDate,{month:'long',day:'numeric'});
   $('#stat-sets').textContent=num(t.sets); $('#stat-reps').textContent=num(t.reps); $('#stat-bodyweight').textContent=bw?num(bw):'—';
   const count=new Set(sessions.map(s=>s.exerciseId)).size; $('#stat-exercise-count').textContent=count; $('#daily-count').textContent=count; $('#stat-exercises').textContent=`Across ${count} exercise${count===1?'':'s'}`;
   $('#open-bodyweight').textContent=bw?'Update your weight →':'Record your weight →';
-  $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length;
+  $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length; $('#copy-day').disabled=!sessions.length;
   $('#history').innerHTML=sessions.length?sessions.map(s=>`<article class="history-entry"><div><h3 class="entry-name">${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'Exercise')}</h3><span class="entry-summary">${s.sets.length} sets · ${num(totals([s]).reps)} reps</span></div><div class="entry-sets">${s.sets.map(set=>`<span class="set-pill">${num(set.weight)} kg × ${set.reps}</span>`).join('')}</div><div class="entry-actions"><button data-edit="${escape(s.id)}" aria-label="Edit ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Edit</button><button data-delete="${escape(s.id)}" aria-label="Delete ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Delete</button></div></article>`).join(''):`<div class="empty-log"><span class="empty-icon">≋</span><h3>A fresh page. A stronger you.</h3><p>No workouts logged for this day.<br>Add your first set and make it count.</p></div>`;
   renderChart();
 }
@@ -101,6 +106,7 @@ $('#add-set').addEventListener('click',()=>{const last=$$('.set-row').at(-1);add
 $('#cancel-edit').addEventListener('click',resetForm);
 $('#workout-form').addEventListener('submit',e=>{
   e.preventDefault();const exerciseId=$('#log-exercise').value;if(!exerciseId)return toast('Add an exercise first.');
+  for(const input of $$('.set-weight')) { const value=parseDecimal(input.value); if(!Number.isFinite(value)||value<0||value>10000){input.setCustomValidity('Enter a weight from 0 to 10000 kg, e.g. 22.5 or 22,5.');input.reportValidity();return;} }
   const session={id:editingId||id(),date:selectedDate,exerciseId,sets:getSets()};
   const next={...data,sessions:editingId?data.sessions.map(s=>s.id===editingId?session:s):[...data.sessions,session]};
   try { validateData(next); } catch(err) {return toast(err.message);}
@@ -109,19 +115,47 @@ $('#workout-form').addEventListener('submit',e=>{
 $('#history').addEventListener('click',e=>{
   const target=e.target.closest('button');if(!target)return;
   const edit=target.dataset.edit, remove=target.dataset.delete;
-  if(edit){showView('overview');const s=data.sessions.find(s=>s.id===edit);editingId=s.id;$('#log-title').textContent='Edit workout';$('#cancel-edit').hidden=false;$('#log-exercise').value=s.exerciseId;$('#set-rows').replaceChildren();s.sets.forEach(set=>addSet(set.weight,set.reps));$('#log-panel').scrollIntoView({block:'start'});}
+  if(edit){showView('overview');const s=data.sessions.find(s=>s.id===edit);editingId=s.id;renderExerciseOptions();$('#log-title').textContent='Edit workout';$('#cancel-edit').hidden=false;$('#log-exercise').value=s.exerciseId;$('#set-rows').replaceChildren();s.sets.forEach(set=>addSet(set.weight,set.reps));$('#log-panel').scrollIntoView({block:'start'});}
   if(remove && confirm('Delete this workout? This cannot be undone.')){if(persist({...data,sessions:data.sessions.filter(s=>s.id!==remove)})){if(editingId===remove)resetForm();render();toast('Workout deleted.');}}
 });
 $('#add-exercise').addEventListener('click',()=>{$('#exercise-form').reset();$('#exercise-error').textContent='';$('#exercise-dialog').showModal();});
 $('#exercise-form').addEventListener('submit',e=>{
   e.preventDefault();const name=$('#exercise-name').value.trim();
   if(!name){$('#exercise-error').textContent='Enter an exercise name.';return;}
-  if(data.exercises.some(x=>x.name.toLowerCase()===name.toLowerCase())){$('#exercise-error').textContent='This exercise is already in your library.';return;}
-  const exercise={id:id(),name};if(persist({...data,exercises:[...data.exercises,exercise]})){selectedExercise=exercise.id;renderExerciseOptions();$('#log-exercise').value=exercise.id;renderChart();$('#exercise-dialog').close();toast('Exercise added to your library.');}
+  if(data.exercises.some(x=>!x.archived && x.name.toLowerCase()===name.toLowerCase())){$('#exercise-error').textContent='This exercise is already in your library.';return;}
+  const existing=data.exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  const exercise=existing?{id:existing.id,name}: {id:id(),name};if(persist({...data,exercises:[...data.exercises.filter(x=>x.id!==exercise.id),exercise]})){selectedExercise=exercise.id;renderExerciseOptions();$('#log-exercise').value=exercise.id;renderChart();$('#exercise-dialog').close();toast('Exercise added to your library.');}
 });
-$('#open-bodyweight').addEventListener('click',()=>{$('#bodyweight-date').textContent=prettyDate(selectedDate);$('#bodyweight-input').value=data.bodyweights[selectedDate]??'';$('#delete-bodyweight').hidden=!data.bodyweights[selectedDate];$('#bodyweight-dialog').showModal();});
-$('#bodyweight-form').addEventListener('submit',e=>{e.preventDefault();const weight=Number($('#bodyweight-input').value);if(!Number.isFinite(weight)||weight<=0||weight>1000)return; if(persist({...data,bodyweights:{...data.bodyweights,[selectedDate]:weight}})){$('#bodyweight-dialog').close();render();toast('Body weight saved.');}});
+$('#bodyweight-input').addEventListener('input',e=>e.target.setCustomValidity(''));
+$('#open-bodyweight').addEventListener('click',()=>{$('#bodyweight-input').setCustomValidity('');$('#bodyweight-date').textContent=prettyDate(selectedDate);$('#bodyweight-input').value=data.bodyweights[selectedDate]??'';$('#delete-bodyweight').hidden=!data.bodyweights[selectedDate];$('#bodyweight-dialog').showModal();});
+$('#bodyweight-form').addEventListener('submit',e=>{e.preventDefault();const input=$('#bodyweight-input'), weight=parseDecimal(input.value);if(!Number.isFinite(weight)||weight<=0||weight>1000){input.setCustomValidity('Enter a body weight greater than 0 and up to 1000 kg, e.g. 72.5 or 72,5.');input.reportValidity();return;} if(persist({...data,bodyweights:{...data.bodyweights,[selectedDate]:weight}})){$('#bodyweight-dialog').close();render();toast('Body weight saved.');}});
 $('#delete-bodyweight').addEventListener('click',()=>{if(!confirm('Remove body weight for this day?'))return;const bodyweights={...data.bodyweights};delete bodyweights[selectedDate];if(persist({...data,bodyweights})){$('#bodyweight-dialog').close();render();toast('Body weight removed.');}});
+function renderLibrary() {
+  $('#library-list').innerHTML=data.exercises.length?data.exercises.map(e=>`<div class="library-row"><div><strong>${escape(e.name)}</strong><small>${e.archived?'Removed · history kept':`${data.sessions.filter(s=>s.exerciseId===e.id).length} saved workouts`}</small></div><button type="button" class="text-button" data-library-id="${escape(e.id)}" data-action="${e.archived?'restore':'remove'}">${e.archived?'Restore':'Remove'}</button></div>`).join(''):'<p>Your library is empty. Close this window and choose New exercise to add one.</p>';
+}
+$('#manage-exercises').addEventListener('click',()=>{renderLibrary();$('#library-dialog').showModal();});
+$('#library-list').addEventListener('click',event=>{
+  const button=event.target.closest('[data-library-id]');if(!button)return;
+  const exercise=data.exercises.find(e=>e.id===button.dataset.libraryId);if(!exercise)return;
+  const restoring=button.dataset.action==='restore';
+  if(!restoring && !confirm(`Remove ${exercise.name} from your exercise library? Saved workouts and progress will be kept.`))return;
+  const next=restoring?{...data,exercises:data.exercises.map(e=>e.id===exercise.id?{id:e.id,name:e.name}:e)}:removeExercise(data,exercise.id);
+  if(persist(next)){resetForm();renderLibrary();render();toast(restoring?'Exercise restored.':'Exercise removed. Saved history is kept.');}
+});
+$('#copy-day').addEventListener('click',()=>{
+  const sessions=data.sessions.filter(s=>s.date===selectedDate);if(!sessions.length)return;
+  $('#copy-summary').textContent=`Copy ${sessions.length} workout${sessions.length===1?'':'s'} from ${prettyDate(selectedDate)}.`;
+  $('#copy-date').value=shiftDate(selectedDate,1);$('#copy-error').textContent='';$('#copy-dialog').showModal();
+});
+$('#copy-form').addEventListener('submit',event=>{
+  event.preventDefault();const targetDate=$('#copy-date').value;
+  try {
+    const next=copyDay(data,selectedDate,targetDate);
+    const existing=data.sessions.filter(s=>s.date===targetDate).length;
+    if(!confirm(`Copy workouts to ${prettyDate(targetDate)}?${existing?` This adds to ${existing} existing workout(s).`:''}`))return;
+    if(persist(next)){$('#copy-dialog').close();render();toast(`Workouts copied to ${prettyDate(targetDate)}.`);}
+  } catch(error) {$('#copy-error').textContent=error.message;}
+});
 $$('.close-dialog').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
 function download(text,name) {const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 $('#export-data').addEventListener('click',()=>{try{download(readBlocked?(localStorage.getItem(STORAGE_KEY)||'{}'):JSON.stringify(data,null,2),`form-${readBlocked?'recovery-':''}${localDate()}.json`);toast('Backup exported. Keep it somewhere safe.');}catch{toast('Unable to export data from this browser.');}});
