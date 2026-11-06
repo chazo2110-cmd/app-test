@@ -14,4 +14,4 @@ const server=http.createServer(async(req,res)=>{
     res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'});res.end(content);
   }catch{res.writeHead(500);res.end('Server error');}
 });
-server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log(`FORM is listening on port ${server.address().port}`));
+server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log(`hao is listening on port ${server.address().port}`));

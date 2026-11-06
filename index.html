@@ -11,10 +11,10 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
-  <title>FORM — Training journal</title>
+  <title>hao — Training journal</title>
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="./" aria-label="FORM home">f<span class="brand-o">o</span>rm<span class="brand-dot">®</span></a><span class="top-caption">THE EVERYDAY TRAINING JOURNAL</span><span class="local-badge"><i></i> Stored on this device</span></header>
+  <header class="topbar"><a class="brand" href="./" aria-label="hao home">h<span class="brand-o">a</span>o<span class="brand-dot">®</span></a><span class="top-caption">THE EVERYDAY TRAINING JOURNAL</span><span class="local-badge"><i></i> Stored on this device</span></header>
   <main>
     <div id="storage-warning" class="notice" role="alert" hidden></div>
     <section class="intro"><div><div class="eyebrow">YOUR EFFORT. YOUR PROGRESS.</div><h1>Show up. <span>Get stronger.</span></h1><p>A little better, one session at a time.</p></div><button class="button light" id="jump-log"><span>＋</span> Log a workout</button></section>
@@ -47,7 +47,7 @@
         <section class="panel food-diary"><div class="panel-heading"><div><span class="eyebrow">03 / YOUR DAY</span><h2>Food diary <span id="food-entry-count" class="count-badge">0</span></h2></div><span class="tiny-label">AMOUNTS IN G / ML · NUTRIENTS IN G</span></div><div id="food-diary"></div></section>
         <section class="panel food-library"><div class="panel-heading"><div><span class="eyebrow">04 / YOUR INGREDIENTS</span><h2>Food library</h2></div><button id="new-food" class="button secondary" type="button">＋ New food</button></div><p class="nutrition-note">Enter label values per 100 g or 100 ml. All five nutrients use grams, including salt (not sodium). Library updates apply from the actual day you save them, including portions already logged on that day and later. Earlier days stay unchanged, even when you log a past day. Deleting a food keeps your diary.</p><div id="food-library-list"></div></section>
       </div>
-      <footer><div><span class="footer-brand">form®</span><span>Built on consistency.</span></div><div class="data-actions"><button id="export-data">Export backup →</button><label class="import-label" role="button" tabindex="0">Import backup<input type="file" id="import-data" accept="application/json,.json" hidden></label></div><p class="footer-note"><span id="storage-remaining" role="status" aria-live="polite">Storage: —</span><span>Your data stays in this browser. Export a backup to keep it safe.</span></p></footer>
+      <footer><div><span class="footer-brand">hao®</span><span>Built on consistency.</span></div><div class="data-actions"><button id="export-data">Export backup →</button><label class="import-label" role="button" tabindex="0">Import backup<input type="file" id="import-data" accept="application/json,.json" hidden></label></div><p class="footer-note"><span id="storage-remaining" role="status" aria-live="polite">Storage: —</span><span>Your data stays in this browser. Export a backup to keep it safe.</span></p></footer>
     </section>
   </main>
   <dialog id="exercise-dialog"><form id="exercise-form"><div class="dialog-heading"><h2>Make it your own.</h2><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div><p>Add an exercise to your library.</p><label for="exercise-name">Exercise name</label><input id="exercise-name" placeholder="e.g. Incline Dumbbell Press" maxlength="80" required autocomplete="off"><p class="field-error" id="exercise-error" role="alert"></p><button class="button dark" type="submit">Add exercise →</button></form></dialog>

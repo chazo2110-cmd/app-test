@@ -26,7 +26,7 @@ export function copyDay(data, sourceDate, targetDate) {
   return { ...data, sessions: [...data.sessions, ...copies] };
 }
 export function validateData(data) {
-  if (!data || data.version !== 1 || !Array.isArray(data.exercises) || !Array.isArray(data.sessions) || !data.bodyweights || typeof data.bodyweights !== 'object' || Array.isArray(data.bodyweights)) throw new Error('This is not a valid FORM backup.');
+  if (!data || data.version !== 1 || !Array.isArray(data.exercises) || !Array.isArray(data.sessions) || !data.bodyweights || typeof data.bodyweights !== 'object' || Array.isArray(data.bodyweights)) throw new Error('This is not a valid hao backup.');
   const ids = new Set(); const names = new Set();
   for (const e of data.exercises) {
     if (e?.archived !== undefined && typeof e.archived !== 'boolean') throw new Error('The exercise status is invalid.');

@@ -182,7 +182,7 @@ $('#copy-form').addEventListener('submit',event=>{
 });
 $$('.close-dialog').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
 function download(text,name) {const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
-$('#export-data').addEventListener('click',()=>{try{download(readBlocked?(localStorage.getItem(STORAGE_KEY)||'{}'):JSON.stringify(data,null,2),`form-${readBlocked?'recovery-':''}${localDate()}.json`);toast('Backup exported. Keep it somewhere safe.');}catch{toast('Unable to export data from this browser.');}});
+$('#export-data').addEventListener('click',()=>{try{download(readBlocked?(localStorage.getItem(STORAGE_KEY)||'{}'):JSON.stringify(data,null,2),`hao-${readBlocked?'recovery-':''}${localDate()}.json`);toast('Backup exported. Keep it somewhere safe.');}catch{toast('Unable to export data from this browser.');}});
 $('.import-label').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#import-data').click();}});
 $('#import-data').addEventListener('change',async e=>{
   const file=e.target.files[0];if(!file)return;
