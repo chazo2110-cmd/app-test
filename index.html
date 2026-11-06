@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141414">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Your training, in perspective. A private, offline workout and body weight journal.">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <title>FORM — Training journal</title>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./" aria-label="FORM home">f<span class="brand-o">o</span>rm<span class="brand-dot">®</span></a><span class="top-caption">THE EVERYDAY TRAINING JOURNAL</span><span class="local-badge"><i></i> Stored on this device</span></header>
+  <main>
+    <div id="storage-warning" class="notice" role="alert" hidden></div>
+    <section class="intro"><div><div class="eyebrow">YOUR EFFORT. YOUR PROGRESS.</div><h1>Show up. <span>Get stronger.</span></h1><p>A little better, one session at a time.</p></div><button class="button light" id="jump-log"><span>＋</span> Log a workout</button></section>
+    <section class="workspace">
+      <div class="daybar"><div><span class="eyebrow">DAILY OVERVIEW</span><h2 id="day-heading">Today</h2></div><div class="date-control"><button id="prev-day" class="icon-button" aria-label="Previous day">←</button><label class="date-label"><span class="sr-only">Selected date</span><input id="active-date" type="date" required></label><button id="next-day" class="icon-button" aria-label="Next day">→</button><button id="today-button" class="text-button">Today</button></div></div>
+      <nav class="view-tabs" role="tablist" aria-label="Training views"><button id="overview-tab" role="tab" aria-selected="true" aria-controls="overview-view" data-view="overview">Overview</button><button id="daily-tab" role="tab" aria-selected="false" aria-controls="daily-view" tabindex="-1" data-view="daily">Daily exercises <span id="daily-count" class="count-badge">0</span></button></nav>
+      <div class="stats"><article class="stat"><span>Exercises <span class="stat-icon">≋</span></span><div><strong id="stat-exercise-count">0</strong><small>exercises</small></div><p>Logged for this day</p></article><article class="stat"><span>Working sets <span class="stat-icon">≋</span></span><div><strong id="stat-sets">0</strong><small>sets</small></div><p id="stat-exercises">Across 0 exercises</p></article><article class="stat"><span>Total reps <span class="stat-icon">↻</span></span><div><strong id="stat-reps">0</strong><small>reps</small></div><p>Every repetition counts</p></article><article class="stat"><span>Body weight <span class="stat-icon">◎</span></span><div><strong id="stat-bodyweight">—</strong><small>kg</small></div><button class="inline-link" id="open-bodyweight">Record your weight →</button></article></div>
+      <div id="overview-view" role="tabpanel" aria-labelledby="overview-tab">
+      <div class="main-grid">
+        <section class="panel progress-panel"><div class="panel-heading"><div><span class="eyebrow">THE BIGGER PICTURE</span><h2>Progress over time</h2></div><span class="tiny-label">01 / PROGRESS</span></div>
+          <div class="chart-toolbar"><label class="select-wrap"><span class="sr-only">Chart exercise</span><select id="chart-exercise"></select></label><div class="segmented" id="range-buttons" aria-label="Chart date range"><button data-range="7">7D</button><button class="active" data-range="30" aria-pressed="true">30D</button><button data-range="0">All</button></div></div>
+          <div class="metric-tabs" id="metric-tabs" aria-label="Chart metric"><button data-metric="weight" class="active" aria-pressed="true">Top weight</button><button data-metric="reps">Reps</button><button data-metric="sets">Sets</button><button data-metric="bodyweight">Body weight</button></div>
+          <div class="chart-summary"><div><strong id="chart-value">—</strong><span id="chart-unit">kg</span></div><span id="chart-change">Your next chapter starts here</span></div>
+          <div id="chart" class="chart" aria-live="polite"></div><div class="chart-footnote"><span><i class="legend-dot"></i><span id="chart-legend">Daily top weight</span></span><span id="chart-period">Last 30 days</span></div>
+        </section>
+        <section class="panel log-panel" id="log-panel"><div class="panel-heading"><div><span class="eyebrow">PUT IN THE WORK</span><h2 id="log-title">Log a workout</h2></div><span class="tiny-label">02 / TRAINING</span></div>
+          <form id="workout-form"><div class="field-label"><label for="log-exercise">Exercise</label><button type="button" class="inline-link" id="add-exercise">＋ New exercise</button></div><select id="log-exercise" required></select><div class="set-head"><span>SET</span><span>WEIGHT (KG)</span><span>REPS</span><span></span></div><div id="set-rows"></div><button type="button" class="add-set" id="add-set">＋ Add set</button><p class="form-hint">Use 0 kg for bodyweight exercises.</p><div class="form-actions"><button type="button" class="button secondary" id="cancel-edit" hidden>Cancel</button><button class="button dark" id="save-workout" type="submit">Save workout <span>→</span></button></div><p class="save-note">Saved for <span id="save-date"></span> · on your device</p></form>
+        </section>
+      </div>
+      </div>
+      <div id="daily-view" role="tabpanel" aria-labelledby="daily-tab" hidden>
+      <section class="panel history-panel"><div class="panel-heading"><div><span class="eyebrow">THE WORK YOU'VE DONE</span><h2>Daily exercises <span id="entry-count" class="count-badge">0</span></h2></div><span id="history-date" class="tiny-label"></span></div><div id="history"></div></section>
+      </div>
+      <footer><div><span class="footer-brand">form®</span><span>Built on consistency.</span></div><div class="data-actions"><button id="export-data">Export backup →</button><label class="import-label" role="button" tabindex="0">Import backup<input type="file" id="import-data" accept="application/json,.json" hidden></label></div><p>Your data stays in this browser. Export a backup to keep it safe.</p></footer>
+    </section>
+  </main>
+  <dialog id="exercise-dialog"><form id="exercise-form"><div class="dialog-heading"><h2>Make it your own.</h2><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div><p>Add an exercise to your library.</p><label for="exercise-name">Exercise name</label><input id="exercise-name" placeholder="e.g. Incline Dumbbell Press" maxlength="80" required autocomplete="off"><p class="field-error" id="exercise-error" role="alert"></p><button class="button dark" type="submit">Add exercise →</button></form></dialog>
+  <dialog id="bodyweight-dialog"><form id="bodyweight-form"><div class="dialog-heading"><h2>Daily check-in.</h2><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div><p>Body weight for <span id="bodyweight-date"></span></p><label for="bodyweight-input">Body weight (kg)</label><input id="bodyweight-input" type="number" inputmode="decimal" min="0.1" max="1000" step="0.1" placeholder="e.g. 72.5" required><div class="bodyweight-actions"><button class="button dark" type="submit">Save weight →</button><button type="button" class="text-button" id="delete-bodyweight" hidden>Remove entry</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
