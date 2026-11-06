@@ -1,3 +1,4 @@
+import { validateNutrition } from './nutrition.js';
 export const STORAGE_KEY = 'form.training.v1';
 export const STARTERS = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Barbell Row', 'Pull-up'];
 export function id() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
@@ -36,7 +37,7 @@ export function validateData(data) {
   }
   for (const [date, weight] of Object.entries(data.bodyweights)) if (!validDate(date) || !Number.isFinite(weight) || weight <= 0 || weight > 1000) throw new Error('A body weight entry is invalid.');
   // Copy only the supported fields, including dictionary keys safely.
-  return { version: 1, exercises: data.exercises.map(e => ({id:e.id,name:e.name.trim(),...(e.archived ? {archived:true} : {})})), sessions: data.sessions.map(s => ({ id:s.id,exerciseId:s.exerciseId,date:s.date,sets:s.sets.map(x=>({reps:x.reps,weight:x.weight})) })), bodyweights: Object.fromEntries(Object.entries(data.bodyweights)) };
+  return { version: 1, exercises: data.exercises.map(e => ({id:e.id,name:e.name.trim(),...(e.archived ? {archived:true} : {})})), sessions: data.sessions.map(s => ({ id:s.id,exerciseId:s.exerciseId,date:s.date,sets:s.sets.map(x=>({reps:x.reps,weight:x.weight})) })), bodyweights: Object.fromEntries(Object.entries(data.bodyweights)), ...(data.nutrition !== undefined ? { nutrition: validateNutrition(data.nutrition, validDate) } : {}) };
 }
 export function totals(sessions) { return sessions.reduce((a,s) => { for (const set of s.sets) { a.sets++; a.reps += set.reps; a.weight = Math.max(a.weight,set.weight); } return a; },{sets:0,reps:0,weight:0}); }
 export function chartPoints(data, exerciseId, metric, endDate, days) {

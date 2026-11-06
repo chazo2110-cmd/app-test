@@ -1,3 +1,4 @@
+import { initNutrition } from './nutrition-ui.js';
 import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay } from './domain.js';
 
 const $ = s => document.querySelector(s);
@@ -16,6 +17,7 @@ function persist(next, importing = false) {
   try { localStorage.setItem(STORAGE_KEY,JSON.stringify(next)); data=next; readBlocked=false; $('#storage-warning').hidden=true; return true; }
   catch { warn('Unable to save on this device. Storage may be full or restricted. Your latest change was not saved. Export a backup of your existing entries.'); return false; }
 }
+const nutritionUI = initNutrition({ getData:()=>data, getDate:()=>selectedDate, save:persist, toast });
 function renderExerciseOptions() {
   const previous = $('#log-exercise').value;
   const editedExercise = data.sessions.find(s=>s.id===editingId)?.exerciseId;
@@ -48,6 +50,7 @@ function render() {
   $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length; $('#copy-day').disabled=!sessions.length;
   $('#history').innerHTML=sessions.length?sessions.map(s=>`<article class="history-entry"><div><h3 class="entry-name">${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'Exercise')}</h3><span class="entry-summary">${s.sets.length} sets · ${num(totals([s]).reps)} reps</span></div><div class="entry-sets">${s.sets.map(set=>`<span class="set-pill">${num(set.weight)} kg × ${set.reps}</span>`).join('')}</div><div class="entry-actions"><button data-edit="${escape(s.id)}" aria-label="Edit ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Edit</button><button data-delete="${escape(s.id)}" aria-label="Delete ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Delete</button></div></article>`).join(''):`<div class="empty-log"><span class="empty-icon">≋</span><h3>A fresh page. A stronger you.</h3><p>No workouts logged for this day.<br>Add your first set and make it count.</p></div>`;
   renderChart();
+  nutritionUI.render();
 }
 const metricNames={weight:'Daily top weight',reps:'Daily total reps',sets:'Daily working sets',bodyweight:'Daily body weight'};
 function renderChart() {
@@ -77,6 +80,7 @@ function renderChart() {
   $$('#chart svg g').forEach(g=>{g.addEventListener('click',()=>$('#chart-change').textContent=g.getAttribute('aria-label'));g.addEventListener('focus',()=>$('#chart-change').textContent=g.getAttribute('aria-label'));});
 }
 function showView(view) {
+  $('#training-stats').hidden = view === 'nutrition';
   $$('.view-tabs [role=tab]').forEach(button=>{
     const active=button.dataset.view===view;
     button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
@@ -162,7 +166,7 @@ $('#export-data').addEventListener('click',()=>{try{download(readBlocked?(localS
 $('.import-label').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#import-data').click();}});
 $('#import-data').addEventListener('change',async e=>{
   const file=e.target.files[0];if(!file)return;
-  try{if(file.size>10*1024*1024)throw new Error('Backup must be smaller than 10 MB.');const next=validateData(JSON.parse(await file.text()));if(!confirm(`Replace current data with this backup (${next.sessions.length} workouts)? Export your existing data first if you want to keep it.`))return;if(persist(next,true)){resetForm();renderExerciseOptions();render();toast('Backup restored. Welcome back.');}}
+  try{if(file.size>10*1024*1024)throw new Error('Backup must be smaller than 10 MB.');const next=validateData(JSON.parse(await file.text()));if(!confirm(`Replace current data with this backup (${next.sessions.length} workouts, plus nutrition data if included)? Export your existing data first if you want to keep it.`))return;if(persist(next,true)){resetForm();renderExerciseOptions();render();toast('Backup restored. Welcome back.');}}
   catch(err){toast(err instanceof SyntaxError?'This file is not valid JSON.':err.message);}finally{e.target.value='';}
 });
 window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY) {readBlocked=true;warn('Your data changed in another tab. Reload this page before saving to avoid overwriting those changes.');}});

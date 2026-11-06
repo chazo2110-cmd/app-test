@@ -19,6 +19,16 @@ For an iPhone, deploy the static files on an HTTPS host and open that site in Sa
 - Choose **Manage** next to Exercise to remove starter or custom exercises. Unused entries are deleted; exercises with saved workouts are removed from logging choices while preserving history and charts, and can be restored. Old backups continue to work.
 - In **Daily exercises**, choose **Copy to another day**, pick a date and confirm. Copies all saved workouts from the selected day, including sets, reps and kg, with independent entries. Existing destination workouts remain; body weight is not copied. Copying twice intentionally adds two copies.
 
+## Nutrition
+
+Open **Nutrition** and use the shared date selector to review any day.
+
+- Set daily protein, carbs and fat targets plus sugar and salt limits, all in grams. Blank means unset; zero is a valid limit. Targets are saved per day; **Use previous day** fills the form for review before saving. These are your own goals, not automatically generated dietary recommendations.
+- Add/edit/delete foods in **Food library**, entering nutrient grams per **100 g** or **100 ml** from the food label. Salt means salt, not sodium. Dot and comma decimals both work. No automatic mass-to-volume conversion is applied.
+- Choose a food and enter the actual amount eaten in its g/ml unit. The preview and daily comparison calculate each nutrient as `label value × amount / 100`.
+- The **Food diary** supports editing portions and deleting entries. Each saved entry keeps its name, unit and nutritional values, so changing or deleting a library food does not rewrite past intake.
+- Nutrition is included in LocalStorage and JSON export/import. Existing training-only data and backups remain compatible. Copying a training day does not copy food entries or nutrition targets.
+
 ## Data and privacy
 
 Data is stored in LocalStorage under `form.training.v1` for the current browser and origin. No server receives it. Changing the site address, clearing Safari website data, device loss, or private browsing can remove or isolate it. Export backups regularly; storage is not cloud sync. A failed storage write is reported and never treated as a successful save. Malformed saved data is preserved for recovery. A change from another tab blocks writes until reload to prevent stale overwrites.

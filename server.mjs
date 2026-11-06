@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const root=fileURLToPath(new URL('.',import.meta.url));
-const allowed=new Set(['index.html','styles.css','app.js','domain.js','icon.svg','apple-touch-icon.png','manifest.webmanifest','sw.js']);
+const allowed=new Set(['index.html','styles.css','app.js','domain.js','nutrition.js','nutrition-ui.js','icon.svg','apple-touch-icon.png','manifest.webmanifest','sw.js']);
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const server=http.createServer(async(req,res)=>{
   try{
