@@ -10,7 +10,7 @@ For an iPhone, deploy the static files on an HTTPS host and open that site in Sa
 
 ## Features
 
-- Create exercises; log individual sets with reps and kg on any selected day.
+- Create exercises; log individual sets with reps and kg on any selected day. Exercise dropdowns, the library and the daily list are sorted A–Z (case insensitive).
 - Edit/delete workouts; record/update/remove one body weight entry per day.
 - See daily exercise count, working sets, total reps and body weight. Open the Daily exercises tab to see the selected day’s workouts and each set’s kg and reps; edit or delete entries there.
 - Line charts by exercise for maximum weight, total reps and sets, plus a separate daily body weight chart. Choose 7 days, 30 days or all history, ending on the selected day. Tap a point for its date/value. Multiple workouts of the same exercise are combined for each day. Missing days are not treated as zero; lines connect recorded days. Bodyweight exercises use 0 kg added load.
@@ -26,7 +26,7 @@ Open **Nutrition** and use the shared date selector to review any day.
 - Set daily protein, carbs and fat targets plus sugar and salt limits, all in grams. Blank means unset; zero is a valid limit. Targets are saved per day; **Use previous day** fills the form for review before saving. These are your own goals, not automatically generated dietary recommendations.
 - Add/edit/delete foods in **Food library**, entering nutrient grams per **100 g** or **100 ml** from the food label. Salt means salt, not sodium. Dot and comma decimals both work. No automatic mass-to-volume conversion is applied.
 - Choose a food and enter the actual amount eaten in its g/ml unit. The preview and daily comparison calculate each nutrient as `label value × amount / 100`.
-- The **Food diary** supports editing portions and deleting entries. Each saved entry keeps its name, unit and nutritional values, so changing or deleting a library food does not rewrite past intake.
+- The **Food diary** supports editing portions and deleting entries. Food library edits take effect on the actual local calendar day they are saved, regardless of the date currently selected. Linked portions on that day and later recalculate using the new values; earlier diary entries stay unchanged. Label versions are retained so new backdated portions use the values effective on their selected date. Repeated edits on the same day replace that day’s version. Deleting a food keeps diary snapshots. Foods with logged portions keep their g/ml unit; add a separate food for a different unit. Legacy entries are linked by matching name and unit when updating; label history from before this feature cannot be reconstructed, so the previous library value is the initial baseline.
 - Nutrition is included in LocalStorage and JSON export/import. Existing training-only data and backups remain compatible. Copying a training day does not copy food entries or nutrition targets.
 
 ## Data and privacy

@@ -1,5 +1,5 @@
-import { id, parseDecimal, shiftDate, validateData } from './domain.js';
-import { NUTRIENTS, NUTRIENT_LABELS, nutritionOf, nutrientsFor, dailyNutrition, compareNutrient } from './nutrition.js';
+import { id, parseDecimal, shiftDate, validateData, localDate } from './domain.js';
+import { NUTRIENTS, NUTRIENT_LABELS, nutritionOf, nutrientsFor, dailyNutrition, compareNutrient, foodForDate, entryBelongsToFood, updateFoodFromDate } from './nutrition.js';
 
 export function initNutrition({ getData, getDate, save, toast }) {
   const $ = selector => document.querySelector(selector);
@@ -21,7 +21,7 @@ export function initNutrition({ getData, getDate, save, toast }) {
   }
   function selectedFood() {
     const nutrition = nutritionOf(getData());
-    return editingEntry ? nutrition.entries.find(e => e.id === editingEntry) : nutrition.foods.find(f => f.id === $('#diary-food').value);
+    return editingEntry ? nutrition.entries.find(e => e.id === editingEntry) : foodForDate(nutrition.foods.find(f => f.id === $('#diary-food').value), getDate());
   }
   function preview() {
     const food = selectedFood(), amount = parseDecimal($('#food-amount').value);
@@ -53,7 +53,7 @@ export function initNutrition({ getData, getDate, save, toast }) {
       return `<article class="nutrient-card"><span>${NUTRIENT_LABELS[key]}${isLimit(key)?' · limit':''}</span><div><strong>${number(total[key])}</strong><small>/ ${target == null?'—':number(target)} g</small></div><div class="nutrient-track" aria-hidden="true"><i style="width:${comparison.percent === null?0:Math.max(0,Math.min(100,comparison.percent))}%"></i></div><p class="${comparison.status === 'over'?'nutrient-over':''}">${text}</p></article>`;
     }).join('');
     const previous = $('#diary-food').value;
-    $('#diary-food').innerHTML = nutrition.foods.map(food => `<option value="${esc(food.id)}">${esc(food.name)} · ${food.unit}</option>`).join('') || '<option value="">No foods yet</option>';
+    $('#diary-food').innerHTML = nutrition.foods.map(food => `<option value="${esc(food.id)}">${esc(foodForDate(food, date).name)} · ${foodForDate(food, date).unit}</option>`).join('') || '<option value="">No foods yet</option>';
     if (editingEntry) {
       const entry = nutrition.entries.find(e => e.id === editingEntry);
       const option = document.createElement('option'); option.value = '__saved__'; option.textContent = `${entry.name} · saved nutrition`; $('#diary-food').append(option); $('#diary-food').value = '__saved__';
@@ -64,7 +64,7 @@ export function initNutrition({ getData, getDate, save, toast }) {
     const entries = nutrition.entries.filter(entry => entry.date === date);
     $('#food-entry-count').textContent = entries.length;
     $('#food-diary').innerHTML = entries.length ? entries.map(entry => `<article class="food-row"><div><h3>${esc(entry.name)}</h3><p>${number(entry.amount)} ${entry.unit} · ${nutrientText(nutrientsFor(entry.nutrients, entry.amount))}</p></div><div class="entry-actions"><button type="button" data-entry-edit="${esc(entry.id)}">Edit</button><button type="button" data-entry-delete="${esc(entry.id)}">Delete</button></div></article>`).join('') : '<div class="empty-log"><h3>A fresh plate.</h3><p>No food logged for this day. Add a food to your library, then log your portion above.</p></div>';
-    $('#food-library-list').innerHTML = nutrition.foods.length ? nutrition.foods.map(food => `<article class="food-row"><div><h3>${esc(food.name)}</h3><p>Per 100 ${food.unit} · ${nutrientText(food.nutrients)}</p></div><div class="entry-actions"><button type="button" data-food-edit="${esc(food.id)}">Edit</button><button type="button" data-food-delete="${esc(food.id)}">Delete</button></div></article>`).join('') : '<div class="empty-log"><h3>Your food library starts here.</h3><p>Add your first food using the nutrition label on its packaging.</p></div>';
+    $('#food-library-list').innerHTML = nutrition.foods.length ? nutrition.foods.map(food => `<article class="food-row"><div><h3>${esc(food.name)}</h3><p>Per 100 ${food.unit} · ${nutrientText(food.nutrients)}${food.versions?` · Updated ${labelDate(food.versions.at(-1).effectiveDate)}`:''}</p></div><div class="entry-actions"><button type="button" data-food-edit="${esc(food.id)}">Edit</button><button type="button" data-food-delete="${esc(food.id)}">Delete</button></div></article>`).join('') : '<div class="empty-log"><h3>Your food library starts here.</h3><p>Add your first food using the nutrition label on its packaging.</p></div>';
   }
 
   $('#targets-form').addEventListener('submit', event => {
@@ -85,8 +85,11 @@ export function initNutrition({ getData, getDate, save, toast }) {
   function openFood(food = null) {
     editingFood = food?.id || null; $('#food-form').reset();
     $('#food-dialog-title').textContent = food ? 'Edit food.' : 'Add a food.';
-    $('#food-name').value = food?.name || ''; $('#food-unit').value = food?.unit || 'g';
-    for (const key of NUTRIENTS) $(`#food-${key}`).value = food?.nutrients[key] ?? 0;
+    const current = foodForDate(food, localDate());
+    $('#food-name').value = current?.name || ''; $('#food-unit').value = current?.unit || 'g';
+    $('#food-unit').disabled = !!food && nutritionOf(getData()).entries.some(entry => entryBelongsToFood(entry, food));
+    $('#food-effective-date').textContent = food ? `Changes apply from ${labelDate(localDate())}, including saved portions on that day and later. Earlier dates keep their original values. For a different g/ml unit, add a separate food.` : 'New foods are also available when logging a past day.';
+    for (const key of NUTRIENTS) $(`#food-${key}`).value = current?.nutrients[key] ?? 0;
     $('#food-error').textContent = ''; $('#food-dialog').showModal();
   }
   $('#new-food').addEventListener('click', () => openFood());
@@ -100,21 +103,23 @@ export function initNutrition({ getData, getDate, save, toast }) {
       nutrients[key] = value;
     }
     const food = { id: editingFood || id(), name, unit: $('#food-unit').value, nutrients };
-    const foods = editingFood ? nutrition.foods.map(f => f.id === editingFood ? food : f) : [...nutrition.foods, food];
-    if (commit({ ...nutrition, foods })) { $('#food-dialog').close(); render(); if (!editingEntry) { $('#diary-food').value = food.id; preview(); } toast('Food saved. Existing diary entries are unchanged.'); }
+    try {
+      const effectiveDate = localDate();
+      if (commit(updateFoodFromDate(nutrition, food, effectiveDate))) { $('#food-dialog').close(); render(); if (!editingEntry) { $('#diary-food').value = food.id; preview(); } toast(editingFood?`Food updated from ${labelDate(effectiveDate)}. Earlier days are unchanged.`:'Food saved.'); }
+    } catch(error) { $('#food-error').textContent = error.message; }
   });
   $('#food-library-list').addEventListener('click', event => {
     const button = event.target.closest('button'); if (!button) return;
     const nutrition = nutritionOf(getData()), food = nutrition.foods.find(f => f.id === (button.dataset.foodEdit || button.dataset.foodDelete)); if (!food) return;
     if (button.dataset.foodEdit) openFood(food);
-    else if (confirm(`Delete ${food.name} from your library? Existing diary entries will be kept.`) && commit({ ...nutrition, foods:nutrition.foods.filter(f => f.id !== food.id) })) { render(); toast('Food deleted. Your diary is kept.'); }
+    else if (confirm(`Delete ${food.name} from your library? Existing diary entries will be kept.`) && commit({ ...nutrition, foods:nutrition.foods.filter(f => f.id !== food.id), entries:nutrition.entries.map(entry => entryBelongsToFood(entry,food)?{...entry,foodId:food.id}:entry) })) { render(); toast('Food deleted. Your diary is kept.'); }
   });
   $('#diary-food').addEventListener('change', preview); $('#food-amount').addEventListener('input', preview);
   $('#food-entry-form').addEventListener('submit', event => {
     event.preventDefault(); const food = selectedFood(), amount = parseDecimal($('#food-amount').value);
     if (!food) { $('#entry-error').textContent = 'Add and select a food first.'; return; }
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000) { $('#entry-error').textContent = 'Enter an amount greater than 0 and up to 100000 g/ml. Decimals can use a dot or comma.'; return; }
-    const nutrition = nutritionOf(getData()), entry = { id: editingEntry || id(), date:getDate(), name:food.name, unit:food.unit, amount, nutrients:{ ...food.nutrients } };
+    const nutrition = nutritionOf(getData()), entry = { id: editingEntry || id(), date:getDate(), name:food.name, unit:food.unit, amount, nutrients:{ ...food.nutrients }, ...((editingEntry ? food.foodId : food.id) ? {foodId:editingEntry ? food.foodId : food.id} : {}) };
     const entries = editingEntry ? nutrition.entries.map(e => e.id === editingEntry ? entry : e) : [...nutrition.entries, entry];
     if (commit({ ...nutrition, entries })) { resetEntry(); render(); toast('Food diary saved.'); }
   });

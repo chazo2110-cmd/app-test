@@ -1,5 +1,5 @@
 import { initNutrition } from './nutrition-ui.js';
-import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay } from './domain.js';
+import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay, sortExercises } from './domain.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -10,7 +10,7 @@ let data = emptyData(), selectedDate = localDate(), metric = 'weight', range = 3
 function warn(message) { $('#storage-warning').hidden = false; $('#storage-warning').textContent = message; }
 try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) data = validateData(JSON.parse(raw)); }
 catch { readBlocked = true; warn('Your saved data could not be read. It has not been overwritten. Export a recovery copy, or import a valid backup before saving new entries.'); }
-let selectedExercise = data.exercises[0]?.id || '';
+let selectedExercise = sortExercises(data.exercises)[0]?.id || '';
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(()=>$('#toast').hidden=true,4500); }
 function updateStorageRemaining() {
   const indicator = $('#storage-remaining');
@@ -39,13 +39,14 @@ const nutritionUI = initNutrition({ getData:()=>data, getDate:()=>selectedDate, 
 function renderExerciseOptions() {
   const previous = $('#log-exercise').value;
   const editedExercise = data.sessions.find(s=>s.id===editingId)?.exerciseId;
-  const available = data.exercises.filter(e=>!e.archived || e.id===editedExercise);
+  const ordered = sortExercises(data.exercises);
+  const available = ordered.filter(e=>!e.archived || e.id===editedExercise);
   const options = list => list.map(e=>`<option value="${escape(e.id)}">${escape(e.name)}${e.archived?' (removed)':''}</option>`).join('');
   $('#log-exercise').innerHTML = options(available) || '<option value="">Add an exercise to get started</option>';
-  $('#chart-exercise').innerHTML = options(data.exercises) || '<option value="">No exercises</option>';
+  $('#chart-exercise').innerHTML = options(ordered) || '<option value="">No exercises</option>';
   $('#log-exercise').disabled = !available.length; $('#save-workout').disabled = !available.length;
   if (available.some(e=>e.id===previous)) $('#log-exercise').value=previous;
-  if (!data.exercises.some(e=>e.id===selectedExercise)) selectedExercise=data.exercises[0]?.id || '';
+  if (!data.exercises.some(e=>e.id===selectedExercise)) selectedExercise=ordered[0]?.id || '';
   $('#chart-exercise').value=selectedExercise;
 }
 function addSet(weight = '', reps = '') {
@@ -60,7 +61,8 @@ function renumber() { $$('.set-row').forEach((row,i)=>{row.querySelector('.set-n
 function getSets() { return $$('.set-row').map(row=>({weight:parseDecimal(row.querySelector('.set-weight').value),reps:Number(row.querySelector('.set-reps').value)})); }
 function resetForm() { editingId=null; $('#log-title').textContent='Log a workout';$('#cancel-edit').hidden=true;$('#set-rows').replaceChildren();addSet();addSet();addSet();renderExerciseOptions(); }
 function render() {
-  const sessions=data.sessions.filter(s=>s.date===selectedDate), t=totals(sessions), bw=data.bodyweights[selectedDate];
+  const order=new Map(sortExercises(data.exercises).map((exercise,index)=>[exercise.id,index]));
+  const sessions=data.sessions.filter(s=>s.date===selectedDate).sort((a,b)=>(order.get(a.exerciseId)??0)-(order.get(b.exerciseId)??0)), t=totals(sessions), bw=data.bodyweights[selectedDate];
   $('#active-date').value=selectedDate; $('#day-heading').textContent=selectedDate===localDate()?'Today’s effort':prettyDate(selectedDate,{month:'long',day:'numeric'});
   $('#stat-sets').textContent=num(t.sets); $('#stat-reps').textContent=num(t.reps); $('#stat-bodyweight').textContent=bw?num(bw):'—';
   const count=new Set(sessions.map(s=>s.exerciseId)).size; $('#stat-exercise-count').textContent=count; $('#daily-count').textContent=count; $('#stat-exercises').textContent=`Across ${count} exercise${count===1?'':'s'}`;
@@ -153,7 +155,7 @@ $('#open-bodyweight').addEventListener('click',()=>{$('#bodyweight-input').setCu
 $('#bodyweight-form').addEventListener('submit',e=>{e.preventDefault();const input=$('#bodyweight-input'), weight=parseDecimal(input.value);if(!Number.isFinite(weight)||weight<=0||weight>1000){input.setCustomValidity('Enter a body weight greater than 0 and up to 1000 kg, e.g. 72.5 or 72,5.');input.reportValidity();return;} if(persist({...data,bodyweights:{...data.bodyweights,[selectedDate]:weight}})){$('#bodyweight-dialog').close();render();toast('Body weight saved.');}});
 $('#delete-bodyweight').addEventListener('click',()=>{if(!confirm('Remove body weight for this day?'))return;const bodyweights={...data.bodyweights};delete bodyweights[selectedDate];if(persist({...data,bodyweights})){$('#bodyweight-dialog').close();render();toast('Body weight removed.');}});
 function renderLibrary() {
-  $('#library-list').innerHTML=data.exercises.length?data.exercises.map(e=>`<div class="library-row"><div><strong>${escape(e.name)}</strong><small>${e.archived?'Removed · history kept':`${data.sessions.filter(s=>s.exerciseId===e.id).length} saved workouts`}</small></div><button type="button" class="text-button" data-library-id="${escape(e.id)}" data-action="${e.archived?'restore':'remove'}">${e.archived?'Restore':'Remove'}</button></div>`).join(''):'<p>Your library is empty. Close this window and choose New exercise to add one.</p>';
+  $('#library-list').innerHTML=data.exercises.length?sortExercises(data.exercises).map(e=>`<div class="library-row"><div><strong>${escape(e.name)}</strong><small>${e.archived?'Removed · history kept':`${data.sessions.filter(s=>s.exerciseId===e.id).length} saved workouts`}</small></div><button type="button" class="text-button" data-library-id="${escape(e.id)}" data-action="${e.archived?'restore':'remove'}">${e.archived?'Restore':'Remove'}</button></div>`).join(''):'<p>Your library is empty. Close this window and choose New exercise to add one.</p>';
 }
 $('#manage-exercises').addEventListener('click',()=>{renderLibrary();$('#library-dialog').showModal();});
 $('#library-list').addEventListener('click',event=>{

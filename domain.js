@@ -3,13 +3,16 @@ export const STORAGE_KEY = 'form.training.v1';
 export const STARTERS = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Barbell Row', 'Pull-up'];
 export function id() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
 export function emptyData() { return { version: 1, exercises: STARTERS.map(name => ({ id: id(), name })), sessions: [], bodyweights: {} }; }
-export function localDate(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
+export function localDate(date = new Date()) { return `${String(date.getFullYear()).padStart(4,'0')}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
 export function validDate(s) { if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d = new Date(`${s}T12:00:00`); return !isNaN(d) && localDate(d) === s; }
 export function shiftDate(date, days) { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate()+days); return localDate(d); }
 export function validSet(s) { return s && Number.isInteger(s.reps) && s.reps > 0 && s.reps <= 10000 && Number.isFinite(s.weight) && s.weight >= 0 && s.weight <= 10000; }
 export function parseDecimal(value) {
   const text = String(value).trim();
   return /^\d+(?:[.,]\d+)?$/.test(text) ? Number(text.replace(',', '.')) : NaN;
+}
+export function sortExercises(exercises) {
+  return [...exercises].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity:'base', numeric:true }));
 }
 export function removeExercise(data, exerciseId) {
   const used = data.sessions.some(s => s.exerciseId === exerciseId);

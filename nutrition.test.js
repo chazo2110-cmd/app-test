@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyData, validateData, validDate } from './domain.js';
-import { emptyNutrition, nutritionOf, nutrientsFor, dailyNutrition, compareNutrient, validateNutrition } from './nutrition.js';
+import { emptyNutrition, nutritionOf, nutrientsFor, dailyNutrition, compareNutrient, validateNutrition, updateFoodFromDate, foodForDate } from './nutrition.js';
 
 const nutrients = { protein:10, carbs:20, fat:5, sugar:8, salt:0.4 };
 function fixture() {
@@ -67,4 +67,54 @@ test('malformed nutrition backups are rejected rather than silently replacing da
     n=>n.targets['invalid']={protein:1},
     n=>delete n.targets['2026-11-06'].salt
   ]) {const nutrition=fixture();mutate(nutrition);assert.throws(()=>validateData({...emptyData(),nutrition}));}
+});
+test('food updates recalculate the effective day and future portions while preserving earlier snapshots',()=>{
+  const nutrition=fixture(), food=nutrition.foods[0];
+  nutrition.entries.push({...nutrition.entries[0],id:'future',date:'2026-11-07'});
+  const original=JSON.parse(JSON.stringify(nutrition));
+  const updated=updateFoodFromDate(nutrition,{...food,name:'Greek yogurt',nutrients:{...nutrients,protein:20}},'2026-11-06');
+  assert.equal(updated.entries.find(e=>e.id==='other').nutrients.protein,10);
+  assert.equal(updated.entries.find(e=>e.id==='other').name,'Yogurt');
+  assert.equal(updated.entries.find(e=>e.id==='first').nutrients.protein,20);
+  assert.equal(updated.entries.find(e=>e.id==='future').name,'Greek yogurt');
+  assert.equal(updated.entries.find(e=>e.id==='second').nutrients.protein,3);
+  assert.equal(dailyNutrition(updated,'2026-11-06').protein,37.5);
+  assert.equal(dailyNutrition(updated,'2026-11-05').protein,10);
+  assert.equal(updated.entries.find(e=>e.id==='first').foodId,food.id);
+  assert.deepEqual(nutrition,original);
+  assert.doesNotThrow(()=>validateNutrition(updated,validDate));
+});
+test('backdated portions use dated labels; same-day edits replace only that day’s version',()=>{
+  const nutrition=fixture(),food=nutrition.foods[0];
+  const first=updateFoodFromDate(nutrition,{...food,nutrients:{...nutrients,protein:20}},'2026-11-06');
+  const second=updateFoodFromDate(first,{...food,name:'New label',nutrients:{...nutrients,protein:25}},'2026-11-06');
+  assert.equal(second.foods[0].versions.length,2);
+  assert.equal(foodForDate(second.foods[0],'2026-11-05').nutrients.protein,10);
+  assert.equal(foodForDate(second.foods[0],'2026-11-06').nutrients.protein,25);
+  const third=updateFoodFromDate(second,{...food,nutrients:{...nutrients,protein:30}},'2026-11-08');
+  assert.equal(foodForDate(third.foods[0],'2026-11-07').nutrients.protein,25);
+  assert.equal(foodForDate(third.foods[0],'2026-11-08').nutrients.protein,30);
+  assert.equal(third.entries.find(e=>e.id==='first').nutrients.protein,25);
+  const restored=validateNutrition(JSON.parse(JSON.stringify(third)),validDate);
+  assert.deepEqual(restored,third);
+  assert.equal(foodForDate(restored.foods[0],'2026-11-05').name,'Yogurt');
+});
+test('food identity survives renames and label updates do not convert saved grams to millilitres',()=>{
+  const nutrition=fixture(),food=nutrition.foods[0];
+  assert.throws(()=>updateFoodFromDate(nutrition,{...food,unit:'ml'},'2026-11-06'),/different g\/ml/);
+  const renamed=updateFoodFromDate(nutrition,{...food,name:'Greek yogurt'},'2026-11-06');
+  const newer=updateFoodFromDate(renamed,{...food,name:'New yogurt',nutrients:{...nutrients,protein:30}},'2026-11-06');
+  assert.equal(newer.entries.find(e=>e.id==='first').name,'New yogurt');
+  assert.equal(newer.entries.find(e=>e.id==='other').name,'Yogurt');
+});
+test('food label history rejects out-of-order, invalid or mismatched versions in backups',()=>{
+  const nutrition=fixture(),food=nutrition.foods[0];
+  const updated=updateFoodFromDate(nutrition,{...food,nutrients:{...nutrients,protein:20}},'2026-11-06');
+  for(const mutate of [
+    n=>n.foods[0].versions.reverse(),
+    n=>n.foods[0].versions[1].effectiveDate='2026-02-30',
+    n=>n.foods[0].versions[0].nutrients.salt=-1,
+    n=>n.foods[0].versions[1].nutrients.protein=50,
+    n=>n.entries[0].foodId=5
+  ]) {const next=JSON.parse(JSON.stringify(updated));mutate(next);assert.throws(()=>validateNutrition(next,validDate));}
 });
