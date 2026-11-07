@@ -1,12 +1,12 @@
 import { initNutrition } from './nutrition-ui.js';
-import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay, sortExercises } from './domain.js';
+import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay, sortExercises, trainingChartPoints } from './domain.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const num = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(n);
 const prettyDate = (s, options = { month:'short', day:'numeric', year:'numeric' }) => new Date(`${s}T12:00:00`).toLocaleDateString('en-US',options);
 const escape = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let data = emptyData(), selectedDate = localDate(), metric = 'weight', range = 30, editingId = null, toastTimer, readBlocked = false;
+let data = emptyData(), selectedDate = localDate(), metric = 'training', range = 30, editingId = null, toastTimer, readBlocked = false;
 function warn(message) { $('#storage-warning').hidden = false; $('#storage-warning').textContent = message; }
 try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) data = validateData(JSON.parse(raw)); }
 catch { readBlocked = true; warn('Your saved data could not be read. It has not been overwritten. Export a recovery copy, or import a valid backup before saving new entries.'); }
@@ -72,32 +72,65 @@ function render() {
   renderChart();
   nutritionUI.render();
 }
-const metricNames={weight:'Daily top weight',reps:'Daily total reps',sets:'Daily working sets',bodyweight:'Daily body weight'};
+const trainingSeries = [
+  { key:'weight', label:'Top weight', unit:'kg', color:'#262622', dash:'', shape:'circle' },
+  { key:'sets', label:'Sets', unit:'sets', color:'#97978c', dash:'2 5', shape:'diamond' },
+  { key:'reps', label:'Reps', unit:'reps', color:'#66665d', dash:'8 4', shape:'square' }
+];
 function renderChart() {
-  const points=chartPoints(data,selectedExercise,metric,selectedDate,range), unit=['weight','bodyweight'].includes(metric)?'kg':metric;
-  $('#chart-exercise').disabled=metric==='bodyweight';$('#chart-unit').textContent=unit;$('#chart-legend').textContent=metricNames[metric];
-  $('#chart-period').textContent=range?`${prettyDate(shiftDate(selectedDate,1-range),{month:'short',day:'numeric'})} – ${prettyDate(selectedDate,{month:'short',day:'numeric'})}`:`Through ${prettyDate(selectedDate,{month:'short',day:'numeric'})}`;
-  $('#chart-value').textContent=points.length?num(points.at(-1).value):'—';
-  const change=points.length>1?points.at(-1).value-points[0].value:0;
-  $('#chart-change').textContent=points.length>1?`${change>0?'+':''}${num(change)} ${unit} from first logged day`:points.length?'First entry. Keep showing up.':'Your next chapter starts here';
-  $$('#metric-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.metric===metric);b.setAttribute('aria-pressed',b.dataset.metric===metric);});
-  $$('#range-buttons button').forEach(b=>{b.classList.toggle('active',Number(b.dataset.range)===range);b.setAttribute('aria-pressed',Number(b.dataset.range)===range);});
-  if (!points.length) { $('#chart').innerHTML=`<div class="chart-empty"><strong>Consistency becomes a curve.</strong><p>${metric==='bodyweight'?'Record your body weight':'Log this exercise'} to see your progress here.<br>Only your real data. Every day counts.</p></div>`;return; }
-  const W=600,H=225,L=43,R=18,T=16,B=34;
-  const values=points.map(p=>p.value), min=Math.min(...values), max=Math.max(...values);
-  const span=Math.max(max-min,max*.15,1), low=Math.max(0,min-span*.25), high=max+span*.3;
-  const stamp=d=>new Date(`${d}T12:00:00Z`).getTime();
-  const start=stamp(range?shiftDate(selectedDate,1-range):points[0].date), end=stamp(selectedDate);
-  const x=p=>end===start?(L+W-R)/2:L+(stamp(p.date)-start)/(end-start)*(W-L-R);
-  const y=v=>H-B-(v-low)/(high-low)*(H-T-B);
-  const path=points.map((p,i)=>`${i?'L':'M'}${x(p).toFixed(2)},${y(p.value).toFixed(2)}`).join(' ');
-  const ticks=Array.from({length:4},(_,i)=>low+(high-low)*i/3);
-  const labelCount=Math.min(range===7?4:5,Math.max(2,Math.round((end-start)/86400000)+1));
-  const labels=Array.from({length:labelCount},(_,i)=>({date:new Date(start+(end-start)*i/(labelCount-1)),x:L+(W-L-R)*i/(labelCount-1)}));
-  // Date labels use UTC to match the chart's calendar-day coordinate system.
-  const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${metricNames[metric]}: ${escape(points.map(p=>`${prettyDate(p.date)}: ${num(p.value)} ${unit}`).join('; '))}"><defs><linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#333" stop-opacity=".09"/><stop offset="100%" stop-color="#333" stop-opacity="0"/></linearGradient></defs>${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#ecece7" stroke-dasharray="3 5"/><text x="${L-9}" y="${y(v)+3}" text-anchor="end">${num(v)}</text>`).join('')}${points.length>1?`<path d="${path} L${x(points.at(-1))},${H-B} L${x(points[0])},${H-B} Z" fill="url(#area-fill)"/><path d="${path}" stroke="#383833" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`:''}${points.map(p=>`<g tabindex="0" role="img" aria-label="${prettyDate(p.date)}: ${num(p.value)} ${unit}"><title>${prettyDate(p.date)}: ${num(p.value)} ${unit}</title><circle cx="${x(p)}" cy="${y(p.value)}" r="12" fill="transparent"/><circle cx="${x(p)}" cy="${y(p.value)}" r="3.5" fill="#fff" stroke="#383833" stroke-width="2"/></g>`).join('')}${labels.map(p=>`<text x="${p.x}" y="${H-7}" text-anchor="middle">${p.date.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})}</text>`).join('')}</svg>`;
-  $('#chart').innerHTML=svg;
-  $$('#chart svg g').forEach(g=>{g.addEventListener('click',()=>$('#chart-change').textContent=g.getAttribute('aria-label'));g.addEventListener('focus',()=>$('#chart-change').textContent=g.getAttribute('aria-label'));});
+  const bodyweight = metric === 'bodyweight';
+  const points = bodyweight ? chartPoints(data, selectedExercise, 'bodyweight', selectedDate, range).map(point=>({date:point.date,weight:point.value})) : trainingChartPoints(data, selectedExercise, selectedDate, range);
+  const series = bodyweight ? [{...trainingSeries[0],label:'Body weight'}] : trainingSeries;
+  $('#chart-exercise').disabled = bodyweight;
+  $('#chart-period').textContent = range ? `${prettyDate(shiftDate(selectedDate,1-range),{month:'short',day:'numeric'})} – ${prettyDate(selectedDate,{month:'short',day:'numeric'})}` : `Through ${prettyDate(selectedDate,{month:'short',day:'numeric'})}`;
+  $('#chart-legend').innerHTML = series.map(item=>`<span><i class="line-sample line-${item.key}"></i>${item.label}${item.key==='weight'?' (kg)':''}</span>`).join('');
+  $('#chart-scale-note').textContent = bodyweight ? 'Body weight in kg. Tap a point for its value.' : 'Left axis: kg. Right axis: sets / reps. Tap a day to see all three values.';
+  $$('#metric-tabs button').forEach(button=>{button.classList.toggle('active',button.dataset.metric===metric);button.setAttribute('aria-pressed',button.dataset.metric===metric);});
+  $$('#range-buttons button').forEach(button=>{button.classList.toggle('active',Number(button.dataset.range)===range);button.setAttribute('aria-pressed',Number(button.dataset.range)===range);});
+  const describe = point => `${prettyDate(point.date)}: ${series.map(item=>`${item.label} ${num(point[item.key])} ${item.unit}`).join(' · ')}`;
+  function showPoint(point) {
+    $('#chart-summary').innerHTML = series.map(item=>`<div class="chart-stat"><span class="chart-stat-label">${item.label}</span><div><strong data-chart-value="${item.key}">${point?num(point[item.key]):'—'}</strong><small>${item.unit}</small></div></div>`).join('');
+    $('#chart-readout').textContent = point ? describe(point) : 'Your next chapter starts here';
+    $$('#chart [data-day]').forEach(group=>group.setAttribute('data-selected',String(group.dataset.day===point?.date)));
+  }
+  if (!points.length) {
+    $('#chart').innerHTML = `<div class="chart-empty"><strong>Consistency becomes a curve.</strong><p>${bodyweight?'Record your body weight':'Log this exercise'} to see your progress here.<br>Only your real data. Every day counts.</p></div>`;
+    showPoint(null); return;
+  }
+  const W = Math.max(300,Math.round($('#chart').getBoundingClientRect().width || 600)), H=250,L=43,R=bodyweight?16:43,T=26,B=34;
+  const maxWeight = Math.max(...points.map(point=>point.weight)), minWeight = Math.min(...points.map(point=>point.weight));
+  const weightSpan = Math.max(maxWeight-minWeight,maxWeight*.15,1);
+  const weightLow = bodyweight ? Math.max(0,minWeight-weightSpan*.25) : 0;
+  const weightMax = bodyweight ? maxWeight+weightSpan*.3 : Math.max(1,maxWeight)*1.15;
+  const countMax = bodyweight ? 1 : Math.max(1,...points.flatMap(point=>[point.sets,point.reps]))*1.15;
+  const stamp = date => new Date(`${date}T12:00:00Z`).getTime();
+  const start = stamp(range?shiftDate(selectedDate,1-range):points[0].date), end=stamp(selectedDate);
+  const x = point => end===start ? (L+W-R)/2 : L+(stamp(point.date)-start)/(end-start)*(W-L-R);
+  const y = (value,key) => H-B-(key==='weight'?(value-weightLow)/(weightMax-weightLow):value/countMax)*(H-T-B);
+  const axisNumber = value => new Intl.NumberFormat('en-US',{maximumFractionDigits:1,notation:Math.abs(value)>=10000?'compact':'standard'}).format(value);
+  const ticks = Array.from({length:5},(_,i)=>i/4);
+  const labelCount = end===start ? 1 : Math.min(W<450?3:5,Math.max(2,Math.round((end-start)/86400000)+1));
+  const labels = Array.from({length:labelCount},(_,i)=>({date:new Date(start+(end-start)*(labelCount===1?0:i/(labelCount-1))),x:labelCount===1?(L+W-R)/2:L+(W-L-R)*i/(labelCount-1)}));
+  const pointMark = (point,item) => {
+    const cx=x(point),cy=y(point[item.key],item.key);
+    return item.shape==='square' ? `<rect x="${cx-3}" y="${cy-3}" width="6" height="6" fill="white" stroke="${item.color}" stroke-width="1.5"/>` : item.shape==='diamond' ? `<path d="M${cx},${cy-4} l4,4 -4,4 -4,-4 Z" fill="white" stroke="${item.color}" stroke-width="1.5"/>` : `<circle cx="${cx}" cy="${cy}" r="3" fill="white" stroke="${item.color}" stroke-width="1.5"/>`;
+  };
+  const lines = series.map(item=>{
+    const path = points.map((point,index)=>`${index?'L':'M'}${x(point)},${y(point[item.key],item.key)}`).join(' ');
+    return `<g data-series="${item.key}"><path class="series-line" d="${path}" stroke="${item.color}" stroke-width="2" stroke-dasharray="${item.dash}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>${points.map(point=>pointMark(point,item)).join('')}</g>`;
+  }).join('');
+  const hitAreas = points.map((point,index)=>{
+    const left = index===0?L:(x(points[index-1])+x(point))/2;
+    const right = index===points.length-1?W-R:(x(point)+x(points[index+1]))/2;
+    return `<g data-day="${point.date}" tabindex="0" role="button" aria-label="${escape(describe(point))}"><title>${escape(describe(point))}</title><line class="chart-cursor" x1="${x(point)}" x2="${x(point)}" y1="${T}" y2="${H-B}" stroke="#aaa99e" stroke-dasharray="3 4"/><rect x="${left}" y="${T}" width="${Math.max(1,right-left)}" height="${H-T-B}" fill="transparent"/></g>`;
+  }).join('');
+  $('#chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${bodyweight?'Body weight':'Top weight, sets and reps'} by day. ${escape(points.map(describe).join('; '))}"><text x="${L-9}" y="12" text-anchor="end">KG</text>${bodyweight?'':`<text x="${W-R}" y="12" text-anchor="end">SETS / REPS</text>`}${ticks.map(t=>`<line x1="${L}" x2="${W-R}" y1="${H-B-t*(H-T-B)}" y2="${H-B-t*(H-T-B)}" stroke="#e9e9e3" stroke-dasharray="3 5"/><text x="${L-9}" y="${H-B-t*(H-T-B)+3}" text-anchor="end">${axisNumber(weightLow+t*(weightMax-weightLow))}</text>${bodyweight?'':`<text x="${W-R+9}" y="${H-B-t*(H-T-B)+3}" text-anchor="start">${axisNumber(t*countMax)}</text>`}`).join('')}${lines}${hitAreas}${labels.map(label=>`<text x="${label.x}" y="${H-8}" text-anchor="middle">${label.date.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})}</text>`).join('')}</svg>`;
+  $$('#chart [data-day]').forEach((group,index)=>{
+    const select = () => showPoint(points[index]);
+    group.addEventListener('click',select); group.addEventListener('focus',select);
+    group.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select();}});
+  });
+  showPoint(points.at(-1));
 }
 function showView(view) {
   $('#training-stats').hidden = view === 'nutrition';
@@ -106,6 +139,7 @@ function showView(view) {
     button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
     document.getElementById(button.getAttribute('aria-controls')).hidden=!active;
   });
+  if(view==='overview')renderChart();
 }
 $('.view-tabs').addEventListener('click',event=>{
   const tab=event.target.closest('[role=tab]');if(tab)showView(tab.dataset.view);
@@ -190,6 +224,8 @@ $('#import-data').addEventListener('change',async e=>{
   catch(err){toast(err instanceof SyntaxError?'This file is not valid JSON.':err.message);}finally{e.target.value='';}
 });
 window.addEventListener('storage',e=>{updateStorageRemaining();if(e.key===STORAGE_KEY) {readBlocked=true;warn('Your data changed in another tab. Reload this page before saving to avoid overwriting those changes.');}});
+let chartResize;
+window.addEventListener('resize',()=>{clearTimeout(chartResize);chartResize=setTimeout(()=>{if(!$('#overview-view').hidden)renderChart();},100);});
 renderExerciseOptions();resetForm();render();
 updateStorageRemaining();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});

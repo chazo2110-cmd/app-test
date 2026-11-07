@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyData, validateData, validDate, totals, chartPoints, shiftDate, parseDecimal, removeExercise, copyDay } from './domain.js';
+import { emptyData, validateData, validDate, totals, chartPoints, shiftDate, parseDecimal, removeExercise, copyDay, trainingChartPoints } from './domain.js';
 function fixture(){const data=emptyData(),exerciseId=data.exercises[0].id;data.sessions=[{id:'a',date:'2026-11-01',exerciseId,sets:[{reps:10,weight:50},{reps:8,weight:60}]},{id:'b',date:'2026-11-01',exerciseId,sets:[{reps:5,weight:70}]},{id:'c',date:'2026-11-03',exerciseId,sets:[{reps:8,weight:75}]}];data.bodyweights={'2026-11-01':72.5,'2026-11-03':72};return data;}
 test('totals count real sets, reps, and maximum weight',()=>{const data=fixture();assert.deepEqual(totals(data.sessions.slice(0,2)),{sets:3,reps:23,weight:70});});
 test('chart combines workouts by calendar day without filling missing days with zero',()=>{const data=fixture();assert.deepEqual(chartPoints(data,data.exercises[0].id,'weight','2026-11-03',7),[{date:'2026-11-01',value:70},{date:'2026-11-03',value:75}]);assert.deepEqual(chartPoints(data,data.exercises[0].id,'reps','2026-11-01',7),[{date:'2026-11-01',value:23}]);});
@@ -45,4 +45,22 @@ test('copy rejects same-day, invalid dates and empty source days without mutatio
   const data=fixture(), before=JSON.stringify(data);
   for(const [source,target] of [['2026-11-01','2026-11-01'],['2026-11-01','2026-02-30'],['2026-11-02','2026-11-03']]) assert.throws(()=>copyDay(data,source,target));
   assert.equal(JSON.stringify(data),before);
+});
+test('combined chart aligns all three measures and merges multiple workouts on the same day',()=>{
+  const data=fixture(), before=JSON.stringify(data);
+  assert.deepEqual(trainingChartPoints(data,data.exercises[0].id,'2026-11-03',7),[
+    {date:'2026-11-01',weight:70,sets:3,reps:23},
+    {date:'2026-11-03',weight:75,sets:1,reps:8}
+  ]);
+  assert.equal(JSON.stringify(data),before);
+});
+test('combined chart keeps zero load and excludes missing days, other exercises and out-of-range records',()=>{
+  const data=fixture(),exerciseId=data.exercises[0].id;
+  data.sessions.push({id:'zero',date:'2026-11-02',exerciseId,sets:[{weight:0,reps:12}]});
+  data.sessions.push({id:'other',date:'2026-11-02',exerciseId:data.exercises[1].id,sets:[{weight:90,reps:5}]});
+  assert.deepEqual(trainingChartPoints(data,exerciseId,'2026-11-02',2),[
+    {date:'2026-11-01',weight:70,sets:3,reps:23},
+    {date:'2026-11-02',weight:0,sets:1,reps:12}
+  ]);
+  assert.deepEqual(trainingChartPoints(data,exerciseId,'2026-10-30',7),[]);
 });
