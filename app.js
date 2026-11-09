@@ -67,7 +67,7 @@ function render() {
   $('#stat-sets').textContent=num(t.sets); $('#stat-reps').textContent=num(t.reps); $('#stat-bodyweight').textContent=bw?num(bw):'—';
   const count=new Set(sessions.map(s=>s.exerciseId)).size; $('#stat-exercise-count').textContent=count; $('#daily-count').textContent=count; $('#stat-exercises').textContent=`Across ${count} exercise${count===1?'':'s'}`;
   $('#open-bodyweight').textContent=bw?'Update your weight →':'Record your weight →';
-  $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length; $('#copy-day').disabled=!sessions.length;
+  $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length; $('#copy-day').disabled=!data.sessions.length;
   $('#history').innerHTML=sessions.length?sessions.map(s=>`<article class="history-entry"><div><h3 class="entry-name">${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'Exercise')}</h3><span class="entry-summary">${s.sets.length} sets · ${num(totals([s]).reps)} reps</span></div><div class="entry-sets">${s.sets.map(set=>`<span class="set-pill">${num(set.weight)} kg × ${set.reps}</span>`).join('')}</div><div class="entry-actions"><button data-edit="${escape(s.id)}" aria-label="Edit ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Edit</button><button data-delete="${escape(s.id)}" aria-label="Delete ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Delete</button></div></article>`).join(''):`<div class="empty-log"><span class="empty-icon">≋</span><h3>A fresh page. A stronger you.</h3><p>No workouts logged for this day.<br>Add your first set and make it count.</p></div>`;
   renderChart();
   nutritionUI.render();
@@ -217,17 +217,30 @@ $('#library-list').addEventListener('click',event=>{
   const next=restoring?{...data,exercises:data.exercises.map(e=>e.id===exercise.id?{id:e.id,name:e.name}:e)}:removeExercise(data,exercise.id);
   if(persist(next)){resetForm();renderLibrary();render();toast(restoring?'Exercise restored.':'Exercise removed. Saved history is kept.');}
 });
+function updateCopySummary() {
+  const sourceDate=$('#copy-source-date').value;
+  const sessions=data.sessions.filter(session=>session.date===sourceDate);
+  const summary=totals(sessions), count=new Set(sessions.map(session=>session.exerciseId)).size;
+  $('#copy-summary').textContent=!validDate(sourceDate)?'Choose the day you want to copy.':sessions.length?`${prettyDate(sourceDate)}: ${sessions.length} workout${sessions.length===1?'':'s'} · ${count} exercise${count===1?'':'s'} · ${summary.sets} sets · ${summary.reps} reps.`:'No workouts saved for this source date. Choose another day.';
+  $('#copy-submit').disabled=!sessions.length;
+  $('#copy-error').textContent='';
+}
 $('#copy-day').addEventListener('click',()=>{
-  const sessions=data.sessions.filter(s=>s.date===selectedDate);if(!sessions.length)return;
-  $('#copy-summary').textContent=`Copy ${sessions.length} workout${sessions.length===1?'':'s'} from ${prettyDate(selectedDate)}.`;
-  $('#copy-date').value=shiftDate(selectedDate,1);$('#copy-error').textContent='';$('#copy-dialog').showModal();
+  if(!data.sessions.length)return;
+  const dates=[...new Set(data.sessions.map(session=>session.date))].sort().reverse();
+  const sourceDate=dates.includes(selectedDate)?selectedDate:dates.find(date=>date<selectedDate)||dates[0];
+  $('#copy-source-date').value=sourceDate;
+  $('#copy-date').value=sourceDate===selectedDate?shiftDate(selectedDate,1):selectedDate;
+  updateCopySummary();$('#copy-dialog').showModal();
 });
+$('#copy-source-date').addEventListener('change',updateCopySummary);
+$('#copy-date').addEventListener('change',()=>$('#copy-error').textContent='');
 $('#copy-form').addEventListener('submit',event=>{
-  event.preventDefault();const targetDate=$('#copy-date').value;
+  event.preventDefault();const sourceDate=$('#copy-source-date').value,targetDate=$('#copy-date').value;
   try {
-    const next=copyDay(data,selectedDate,targetDate);
+    const next=copyDay(data,sourceDate,targetDate);
     const existing=data.sessions.filter(s=>s.date===targetDate).length;
-    if(!confirm(`Copy workouts to ${prettyDate(targetDate)}?${existing?` This adds to ${existing} existing workout(s).`:''}`))return;
+    if(!confirm(`Copy workouts from ${prettyDate(sourceDate)} to ${prettyDate(targetDate)}?${existing?` This adds to ${existing} existing workout(s).`:''}`))return;
     if(persist(next)){$('#copy-dialog').close();render();toast(`Workouts copied to ${prettyDate(targetDate)}.`);}
   } catch(error) {$('#copy-error').textContent=error.message;}
 });

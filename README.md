@@ -17,7 +17,7 @@ For an iPhone, deploy the static files on an HTTPS host and open that site in Sa
 - Export and restore validated JSON backups. Import replaces existing data only after confirmation.
 - Enter kg using either decimal separator: `22.5` or `22,5` (also supported for body weight). Reps remain whole numbers.
 - Choose **Manage** next to Exercise to remove starter or custom exercises. Unused entries are deleted; exercises with saved workouts are removed from logging choices while preserving history and charts, and can be restored. Old backups continue to work.
-- In **Daily exercises**, choose **Copy to another day**, pick a date and confirm. Copies all saved workouts from the selected day, including sets, reps and kg, with independent entries. Existing destination workouts remain; body weight is not copied. Copying twice intentionally adds two copies.
+- In **Daily exercises**, choose **Copy workouts**, select any **From date** and **To date**, then confirm. A preview shows the source day’s workouts, exercises, sets and reps. Copy is available even when the day you are viewing is empty, provided another day has saved workouts. Copies all saved workouts from the chosen source day, including sets, reps and kg, with independent entries. Existing destination workouts remain; body weight is not copied. Copying twice intentionally adds two copies.
 
 ## Nutrition
 
