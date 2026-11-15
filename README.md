@@ -19,6 +19,12 @@ For an iPhone, deploy the static files on an HTTPS host and open that site in Sa
 - Choose **Manage** next to Exercise to remove starter or custom exercises. Unused entries are deleted; exercises with saved workouts are removed from logging choices while preserving history and charts, and can be restored. Old backups continue to work.
 - In **Daily exercises**, choose **Copy workouts**, select any **From date** and **To date**, then confirm. A preview shows the source day’s workouts, exercises, sets and reps. Copy is available even when the day you are viewing is empty, provided another day has saved workouts. Copies all saved workouts from the chosen source day, including sets, reps and kg, with independent entries. Existing destination workouts remain; body weight is not copied. Copying twice intentionally adds two copies.
 
+## Body weight targets
+
+In Overview, **Body weight targets** shows the goal for the selected date’s planner week. The default plan contains the 98 weekly weights from `fitness_periodization_planner.html`, starting 14 October 2026 and covering through 29 August 2028. Values match the source’s two-decimal interpolation within each phase; each week runs Wednesday through Tuesday.
+
+Use **Edit target** to change the selected week, or expand **View and manage weekly targets** to edit or delete any goal. Deleted weeks stay empty after reload; **Set target** can add a goal back for the selected week. Targets are stored separately from actual body weight and included in JSON backups. Existing data and older backups receive the default plan only when the target field is absent; an explicitly empty plan stays empty. Training and nutrition data are preserved.
+
 ## Nutrition
 
 Open **Nutrition** and use the shared date selector to review any day.
