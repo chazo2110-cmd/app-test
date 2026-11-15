@@ -1,3 +1,4 @@
+import { weightTargetWeek } from './weight-targets.js';
 import { initNutrition } from './nutrition-ui.js';
 import { STORAGE_KEY, emptyData, id, localDate, shiftDate, validDate, validateData, totals, chartPoints, parseDecimal, removeExercise, copyDay, sortExercises, trainingChartPoints } from './domain.js';
 
@@ -70,8 +71,52 @@ function render() {
   $('#save-date').textContent=prettyDate(selectedDate,{month:'short',day:'numeric'}); $('#history-date').textContent=prettyDate(selectedDate).toUpperCase(); $('#entry-count').textContent=sessions.length; $('#copy-day').disabled=!data.sessions.length;
   $('#history').innerHTML=sessions.length?sessions.map(s=>`<article class="history-entry"><div><h3 class="entry-name">${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'Exercise')}</h3><span class="entry-summary">${s.sets.length} sets · ${num(totals([s]).reps)} reps</span></div><div class="entry-sets">${s.sets.map(set=>`<span class="set-pill">${num(set.weight)} kg × ${set.reps}</span>`).join('')}</div><div class="entry-actions"><button data-edit="${escape(s.id)}" aria-label="Edit ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Edit</button><button data-delete="${escape(s.id)}" aria-label="Delete ${escape(data.exercises.find(e=>e.id===s.exerciseId)?.name || 'workout')}">Delete</button></div></article>`).join(''):`<div class="empty-log"><span class="empty-icon">≋</span><h3>A fresh page. A stronger you.</h3><p>No workouts logged for this day.<br>Add your first set and make it count.</p></div>`;
   renderChart();
+  renderWeightTargets();
   nutritionUI.render();
 }
+let editingTargetDate;
+function targetDates(date) { return `${prettyDate(date)} – ${prettyDate(shiftDate(date,6))}`; }
+function renderWeightTargets() {
+  const week = weightTargetWeek(selectedDate), target = data.bodyweightTargets[week];
+  $('#selected-weight-target').textContent = `${targetDates(week)} · ${target === undefined ? 'No target set' : `Target: ${num(target)} kg`}`;
+  $('#edit-selected-target').textContent = target === undefined ? 'Set target' : 'Edit target';
+  const targets = Object.entries(data.bodyweightTargets).sort(([a],[b])=>a.localeCompare(b));
+  $('#weight-target-list').innerHTML = targets.length ? targets.map(([date,weight])=>`<div class="library-row"><div><strong>${num(weight)} kg</strong><small>${targetDates(date)}</small></div><div class="entry-actions"><button type="button" data-edit-target="${date}" aria-label="Edit target for ${targetDates(date)}">Edit</button><button type="button" data-delete-target="${date}" aria-label="Delete target for ${targetDates(date)}">Delete</button></div></div>`).join('') : '<p class="nutrition-note">No weight targets. Select a date and choose Set target to add one.</p>';
+}
+function openWeightTarget(date) {
+  editingTargetDate = date;
+  $('#weight-target-dates').textContent = targetDates(date);
+  $('#weight-target-input').value = data.bodyweightTargets[date] ?? '';
+  $('#weight-target-input').setCustomValidity('');
+  $('#delete-weight-target').hidden = data.bodyweightTargets[date] === undefined;
+  $('#weight-target-dialog').showModal();
+}
+function deleteWeightTarget(date) {
+  if (!confirm(`Delete the weight target for ${targetDates(date)}?`)) return;
+  const bodyweightTargets = {...data.bodyweightTargets};
+  delete bodyweightTargets[date];
+  if (persist({...data,bodyweightTargets})) {
+    $('#weight-target-dialog').close();render();toast('Weight target deleted.');
+  }
+}
+$('#edit-selected-target').addEventListener('click',()=>openWeightTarget(weightTargetWeek(selectedDate)));
+$('#weight-target-list').addEventListener('click',event=>{
+  const edit = event.target.closest('[data-edit-target]'), remove = event.target.closest('[data-delete-target]');
+  if (edit) openWeightTarget(edit.dataset.editTarget);
+  if (remove) deleteWeightTarget(remove.dataset.deleteTarget);
+});
+$('#weight-target-input').addEventListener('input',event=>event.target.setCustomValidity(''));
+$('#weight-target-form').addEventListener('submit',event=>{
+  event.preventDefault();
+  const input = $('#weight-target-input'), weight = parseDecimal(input.value);
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 1000) {
+    input.setCustomValidity('Enter a target greater than 0 and up to 1000 kg.');input.reportValidity();return;
+  }
+  if (persist({...data,bodyweightTargets:{...data.bodyweightTargets,[editingTargetDate]:weight}})) {
+    $('#weight-target-dialog').close();render();toast('Weight target saved.');
+  }
+});
+$('#delete-weight-target').addEventListener('click',()=>deleteWeightTarget(editingTargetDate));
 const trainingSeries = [
   { key:'weight', label:'Top weight', unit:'kg', color:'#dc2626', dash:'', shape:'circle' },
   { key:'sets', label:'Sets', unit:'sets', color:'#16a34a', dash:'', shape:'diamond' },
